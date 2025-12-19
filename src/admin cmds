@@ -1,0 +1,175 @@
+//Copyright © 2025 stealprooo_.  
+//This code may not be used, copied, modified, or distributed without permission from the author.
+
+var Configuration = {
+    admins: ["stealprooo_"],
+    gamemode: ["!gm"],
+    fly: ["!fly", "!unfly"],
+    teleport: ["!tpto", "!tphere"],
+    item: ["!give"],
+    kill: ["!kill"],
+    heal: ["!heal"],
+    vanish: ["!vanish", "!unvanish"],
+    damage: ["!dmg"]
+};
+
+onPlayerChat = (id, msg) => {
+    if (!msg.startsWith("!")) return;
+
+    const name = api.getEntityName(id);
+    if (!Configuration.admins.includes(name)) {
+        api.sendMessage(id, "You are not allowed to use this command.", { color: "red" });
+        return false;
+    }
+
+    const args = msg.split(" ");
+    const cmd = args[0].toLowerCase();
+
+    const findPlayer = (partial) => {
+        const lower = partial.toLowerCase();
+        const matches = api.getPlayerIds().filter(pid =>
+            api.getEntityName(pid).toLowerCase().includes(lower)
+        );
+        if (matches.length === 1) return matches[0];
+        if (matches.length > 1) return { multi: matches.map(p => api.getEntityName(p)) };
+        return null;
+    };
+
+
+    if (cmd === "!gm") {
+        if (!args[1] || (args[1] !== "1" && args[1] !== "0")) {
+            api.sendMessage(id, "Usage: !gm <1|0> (1=Creative, 0=Survival)", { color: "red" });
+            return false;
+        }
+        api.setClientOption(id, "creative", args[1] === "1");
+        api.sendMessage(id, "Gamemode set to " + (args[1] === "1" ? "Creative" : "Survival"), { color: "lime" });
+        return false;
+    }
+
+
+    if (cmd === "!fly") {
+        const speed = Number(args[1]) || 1.5;
+        api.setClientOption(id, "creative", true);
+        api.setClientOption(id, "flySpeedMultiplier", speed);
+        api.sendMessage(id, "Fly enabled | Speed: " + speed, { color: "yellow" });
+        return false;
+    }
+
+    if (cmd === "!unfly") {
+        api.setClientOption(id, "creative", false);
+        api.sendMessage(id, "Fly disabled", { color: "yellow" });
+        return false;
+    }
+
+
+    if (cmd === "!tpto") {
+        if (!args[1]) {
+            api.sendMessage(id, "Usage: !tpto <player>", { color: "red" });
+            return false;
+        }
+        const target = findPlayer(args.slice(1).join(" "));
+        if (!target || target.multi) {
+            api.sendMessage(id, "Player not found or ambiguous", { color: "red" });
+            return false;
+        }
+        api.setPosition(id, ...api.getPosition(target));
+        api.sendMessage(id, "Teleported to " + api.getEntityName(target), { color: "lime" });
+        return false;
+    }
+
+    if (cmd === "!tphere") {
+        if (!args[1]) {
+            api.sendMessage(id, "Usage: !tphere <player>", { color: "red" });
+            return false;
+        }
+        const target = findPlayer(args.slice(1).join(" "));
+        if (!target || target.multi) {
+            api.sendMessage(id, "Player not found or ambiguous", { color: "red" });
+            return false;
+        }
+        api.setPosition(target, ...api.getPosition(id));
+        api.sendMessage(id, "Teleported " + api.getEntityName(target) + " to you", { color: "lime" });
+        return false;
+    }
+
+
+    if (cmd === "!give") {
+        if (args.length < 4) {
+            api.sendMessage(id, "Usage: !give <player> <item> <amount>", { color: "red" });
+            return false;
+        }
+        const target = findPlayer(args[1]);
+        if (!target || target.multi) {
+            api.sendMessage(id, "Player not found or ambiguous", { color: "red" });
+            return false;
+        }
+        const amount = Number(args[args.length - 1]) || 1;
+        const item = args.slice(2, -1).join(" ");
+        api.giveItem(target, item, amount);
+        api.sendMessage(id, `Gave ${amount}x ${item} to ${api.getEntityName(target)}`, { color: "lime" });
+        return false;
+    }
+
+
+    if (cmd === "!kill") {
+        if (!args[1]) {
+            api.sendMessage(id, "Usage: !kill <player>", { color: "red" });
+            return false;
+        }
+        const target = findPlayer(args.slice(1).join(" "));
+        if (!target || target.multi) {
+            api.sendMessage(id, "Player not found or ambiguous", { color: "red" });
+            return false;
+        }
+        api.setHealth(target, 0, undefined, true);
+        api.sendMessage(id, "Killed " + api.getEntityName(target), { color: "lime" });
+        return false;
+    }
+
+
+    if (cmd === "!heal") {
+        const target = args[1] ? findPlayer(args.slice(1).join(" ")) : id;
+        if (!target || target.multi) {
+            api.sendMessage(id, "Player not found or ambiguous", { color: "red" });
+            return false;
+        }
+        api.setHealth(target, 100, undefined, true);
+        api.sendMessage(id, "Healed " + api.getEntityName(target), { color: "lime" });
+        return false;
+    }
+
+
+    if (cmd === "!vanish") {
+        api.applyEffect(id, "Invisible", null, {});
+        api.sendMessage(id, "You are now invisible", { color: "yellow" });
+        return false;
+    }
+
+    if (cmd === "!unvanish") {
+        api.removeEffect(id, "Invisible");
+        api.sendMessage(id, "You are now visible", { color: "yellow" });
+        return false;
+    }
+
+
+    if (cmd === "!dmg") {
+        if (args.length < 3) {
+            api.sendMessage(id, "Usage: !dmg <player> <amount>", { color: "red" });
+            return false;
+        }
+        const target = findPlayer(args[1]);
+        if (!target || target.multi) {
+            api.sendMessage(id, "Player not found or ambiguous", { color: "red" });
+            return false;
+        }
+        const dmg = Number(args[2]);
+        if (isNaN(dmg) || dmg <= 0) {
+            api.sendMessage(id, "Invalid damage amount", { color: "red" });
+            return false;
+        }
+        const currentHealth = api.getHealth(target);
+        api.setHealth(target, Math.max(currentHealth - dmg, 0), undefined, true);
+        api.sendMessage(id, `Dealt ${dmg} damage to ${api.getEntityName(target)}`, { color: "lime" });
+        return false;
+    }
+};
