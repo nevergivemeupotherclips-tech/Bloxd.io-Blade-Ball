@@ -1,0 +1,213 @@
+//Copyright © 2025 stealprooo_.  
+//This code may not be used, copied, modified, or distributed without permission from the author.
+let lastEffect = {};
+
+onPlayerClick = (id) => {
+    let heldItem = api.getHeldItem(id);
+    if (!heldItem) return;
+
+    let name = heldItem.attributes?.customDisplayName || heldItem.name;
+
+    if (name === "Ability 1 Invisibility") {
+        if (lastEffect[id] === "Invisible") {
+            api.sendMessage(id, [
+                { str: "[LOBBY] ", style: { color: "black" } },
+                { str: "You Already Invis", style: { color: "cyan" } }
+            ]);
+            return;
+        }
+
+        if (lastEffect[id]) api.removeEffect(id, lastEffect[id]);
+
+        api.applyEffect(id, "Invisible", 180000, {});
+        lastEffect[id] = "Invisible";
+
+        api.sendMessage(id, [
+            { str: "[LOBBY] ", style: { color: "black" } },
+            { str: "You are now invisible", style: { color: "cyan" } }
+        ]);
+        return;
+    }
+
+    if (name === "Ability 2 Unvisibility") {
+        if (lastEffect[id] !== "Invisible") {
+            api.sendMessage(id, [
+                { str: "[LOBBY] ", style: { color: "black" } },
+                { str: "You don't have the effect", style: { color: "cyan" } }
+            ]);
+            return;
+        }
+
+        api.removeEffect(id, "Invisible");
+        lastEffect[id] = null;
+
+        api.sendMessage(id, [
+            { str: "[LOBBY] ", style: { color: "black" } },
+            { str: "Invisible removed", style: { color: "cyan" } }
+        ]);
+    }
+};
+
+
+
+function getChestData(id){
+    const slot = api.getMoonstoneChestItemSlot(id,0)
+    return slot?.attributes?.customAttributes
+}
+
+function setChestData(id,data){
+    api.setMoonstoneChestItemSlot(id,0,"Dirt",1,{customAttributes:data})
+}
+
+
+function getCoins(id){
+    let data = getChestData(id)
+    if(!data){
+        data={coins:50} 
+        setChestData(id,data)
+        giveKit(id,"default")
+    }
+    if(data.coins==null){
+        data.coins=50
+        setChestData(id,data)
+    }
+    return data.coins
+}
+
+function addCoins(id,amt){
+    let data=getChestData(id)
+    if(!data) data={coins:0}
+    if(data.coins==null) data.coins=0
+    data.coins+=amt
+    setChestData(id,data)
+    return data.coins
+}
+
+function spendCoins(id,amt){
+    let data=getChestData(id)
+    if(!data||data.coins<amt) return false
+    data.coins-=amt
+    setChestData(id,data)
+    return true
+}
+
+
+let lastHUD={}
+
+function updateHUD(id){
+    const c=getCoins(id)
+    if(lastHUD[id]) api.removeEffect(id,lastHUD[id])
+    const t=`Coins: ${c}`
+    api.applyEffect(id,t,null,{icon:"Gold Coin"})
+    lastHUD[id]=t
+}
+
+
+function buyKit(id,kit){
+    let cost = 0
+    if(kit==="default") cost = 0
+    if(kit==="hide") cost = 100
+    if(kit==="tank") cost = 120
+    if(kit==="archer") cost = 110
+
+    if(!spendCoins(id,cost)){
+        api.sendMessage(id,`Not enough coins to buy ${kit} kit!`,{color:"red"})
+        return
+    }
+
+    api.sendMessage(id,`Bought ${kit} kit for ${cost} coins!`,{color:"green"})
+    giveKit(id,kit)
+}
+
+function giveKit(id,kit){
+    if(kit==="default"){
+        api.giveItem(id,"Wood Sword",1,{
+            customDisplayName:"Starter Sword",
+            customDescription:"A simple wooden sword"
+        })
+        api.giveItem(id,"Apple",5,{
+            customDisplayName:"Starter Apple",
+            customDescription:"Basic healing food"
+        })
+    }
+    if(kit==="hide"){ 
+        
+		api.giveItem(id,"Wood Sword",1,{
+            customDisplayName:"Hideing Sword",
+            customDescription:"Turn Invis for 10 s when hiting the Ball!"
+        })
+		
+        api.giveItem(id,"Block of Coal",1,{
+            customDisplayName:"Ability 1 Invisibility",
+            customDescription:"Use to become invisible temporarily"
+        })
+		
+		api.giveItem(id,"Block of Gold",1,{
+            customDisplayName:"Ability 2 Unvisibility",
+            customDescription:"Use to become Visble"
+        })
+    }
+    if(kit==="tank"){
+        api.giveItem(id,"Stone Sword",1,{
+            customDisplayName:"Tank Crusher",
+            customDescription:"Heavy sword for tanks"
+        })
+        api.giveItem(id,"Apple",15,{
+            customDisplayName:"Tank Apples",
+            customDescription:"Hearty apples for tank kits"
+        })
+    }
+    if(kit==="archer"){
+        api.giveItem(id,"Diamond Bow",1,{
+            customDisplayName:"Archer Bow",
+            customDescription:"Bow for long range attacks"
+        })
+        api.giveItem(id,"Arrow",32,{
+            customDisplayName:"Archer Arrows",
+            customDescription:"Arrows for your bow"
+        })
+    }
+}
+
+
+let lastAbilityUse={}
+
+
+onPlayerJoin=(id)=>{
+    getCoins(id)
+    updateHUD(id)
+}
+
+
+onPlayerKilledOtherPlayer=(killer,victim)=>{
+    const r=(Math.random()*35|0)+20
+    addCoins(killer,r)
+    updateHUD(killer)
+    api.sendMessage(killer,`+${r} Coins`,{color:"yellow"})
+}
+
+onPlayerDamagingOtherPlayer = (attacker, victim) => {
+    const attackerName = api.getEntityName(attacker);
+
+    api.sendMessage(attacker, [
+        { str: "[LOBBY] ", style: { color: "gray" } },
+        { str: "USE A ITEM/SWORD ON A BALL", style: { color: "cyan" } }
+    ]);
+
+    api.sendMessage(victim, [
+        { str: "[LOBBY] ", style: { color: "gray" } },
+        { str: `You Have Been Protected ${attackerName} is the guy who hit you`, style: { color: "cyan" } }
+    ]);
+
+    return "preventDamage";
+};
+
+
+
+
+// Tick handler
+tick=()=>{
+    for(const id of api.getPlayerIds()) updateHUD(id)
+}
+
+
